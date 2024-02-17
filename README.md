@@ -22,4 +22,4 @@ For enabling wifi connection in minimal:
   7. set_network 0 key_mgmt WPA-PSK
   8. enable_network 0
 
- 
+ Or just " wpa_supplicant -B -i interface -c <(wpa_passphrase 'SSID' 'key' "

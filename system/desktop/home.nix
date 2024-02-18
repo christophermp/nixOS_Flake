@@ -23,8 +23,8 @@
     ];
 
 
-    home.username = "total";
-    home.homeDirectory = "/home/total";
+    home.username = "christophermp";
+    home.homeDirectory = "/home/christophermp";
     home.stateVersion = "24.05";
 
     home.packages = with pkgs; [
@@ -37,6 +37,13 @@
       swappy
       pureref
       pamixer
+      vscode
+      pkgs.termius
+      gh
+      neofetch
+      pkgs.dotnet-sdk_8
+      pkgs.mono5
+      pkgs.nodejs_21
 
      #Work (Testing)
      wpsoffice
@@ -59,5 +66,11 @@
 
     # Let Home Manager install and manage itself.
     programs.home-manager.enable = true;
+
+     nix.gc = {
+		automatic = true;
+		dates = "weekly";
+		options = "--delete-older-than 7d";
+	};
 
 }

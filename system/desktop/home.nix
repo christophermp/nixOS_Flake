@@ -35,7 +35,6 @@
       slurp
       grim
       swappy
-      pureref
       pamixer
 
      #Work (Testing)

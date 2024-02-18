@@ -169,7 +169,7 @@ fonts.packages = with pkgs; [
   #services.xserver.desktopManager.plasma5.enable = true;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
-  users.users.total = {
+  users.users.christophermp = {
     isNormalUser = true;
     initialPassword = "nixos";
     description = "";
@@ -206,7 +206,15 @@ fonts.packages = with pkgs; [
     # Work
     sstp
     networkmanager-sstp
-    citrix_workspace
+    git
+    firefox
+    vscode
+    pkgs.termius
+    gh
+    neofetch
+    pkgs.dotnet-sdk_8
+    pkgs.mono5
+    pkgs.nodejs_21
   ];
 
   # Some programs need SUID wrappers, can be configured further or are

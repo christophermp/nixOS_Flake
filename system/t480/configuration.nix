@@ -19,13 +19,22 @@
       efiSupport = true;
       devices = [ "nodev" ];
       configurationLimit = 4;
+      useOSProber = true;
     };
   };
 
 
   # Kernel setup
   boot.kernelPackages = pkgs.linuxPackages_zen;
-
+  boot.kernelParams = [
+      "i915.modeset=1"
+      "i915.fastboot=1"
+      "i915.enable_guc=2"
+      "i915.enable_psr=1"
+      "i915.enable_fbc=1"
+      "i915.enable_dc=2"
+      "psmouse.synaptics_intertouch=0"
+    ];
   boot.kernel.sysctl = {
     "kernel.sysrq" = 1;                             # SysRQ for is rebooting their machine properly if it freezes: SOURCE: https://oglo.dev/tutorials/sysrq/index.html
     "net.core.rmem_default" = 1073741824;           # Default socket receive buffer size, improve network performance & applications that use sockets
@@ -50,7 +59,11 @@
 
   # Extra BOOT settings
   boot.supportedFilesystems = [ "btrfs" "ntfs" ];
-  boot.kernelModules = [ "btrfs" "nvidia" "nvidia_uvm" "tcp_bbr" ];
+  boot.extraModulePackages = with config.boot.kernelPackages; [
+      acpi_call
+      v4l2loopback
+  ];
+  boot.kernelModules = [ "btrfs" "tcp_bbr" "v4l2loopback" "acpi_call" ];
   boot.tmp.cleanOnBoot = true;
   boot.modprobeConfig.enable = true;
   boot.extraModprobeConfig = ''
@@ -58,6 +71,11 @@
   hardware.enableAllFirmware = true;
   nixpkgs.config.allowUnfree = true;
   nixpkgs.config.allowBroken = true;
+
+  hardware.trackpoint = {
+      enable = true;
+      sensitivity = 255;
+  };
 
   # Zram
   zramSwap = {
@@ -82,40 +100,14 @@
   };
 
   # Power Management
-  powerManagement.cpuFreqGovernor = "performance";
+  powerManagement.cpuFreqGovernor = "powersave";
 
-  # NVIDIA STUFF
-  services.xserver.videoDrivers = ["nvidia"];
-
-  hardware.nvidia = {
-
-    modesetting.enable = true;                # Modesetting is required.
-    nvidiaPersistenced = true;                # Ensures all GPUs stay awake even during headless mode
-
-    powerManagement.enable = false;           # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
-
-    # Fine-grained power management. Turns off GPU when not in use.
-    # Experimental and only works on modern Nvidia GPUs (Turing or newer).
-    powerManagement.finegrained = false;
-
-    # Use the NVidia open source kernel module (not to be confused with the
-    # independent third-party "nouveau" open source driver).
-    # Support is limited to the Turing and later architectures. Full list of 
-    # supported GPUs is at: 
-    # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
-    # Only available from driver 515.43.04+
-    # Currently alpha-quality/buggy, so false is currently the recommended setting.
-    open = false;
-
-    # Enable the Nvidia settings menu,
-	  # accessible via `nvidia-settings`.
-    nvidiaSettings = false;
-  };
+  services.xserver.videoDrivers = ["intel"];  
 
   # Networking
   networking.networkmanager.enable = true;
  # programs.nm-applet.enable = true;
-  networking.hostName = "nixos"; # Define your hostname.
+  networking.hostName = "nixos_t480"; # Define your hostname.
 
   # Set your time zone.
   time.timeZone = "Europe/Oslo";
@@ -151,17 +143,20 @@ fonts.packages = with pkgs; [
 ];
 
   # Enable OpenGL
-  hardware.opengl = {
-    enable = true;
-    driSupport = true;
-    driSupport32Bit = true;
+  hardware = {
+    cpu.intel.updateMicrocode = true;
+
+    opengl.enable = true;
+    opengl.driSupport = true;
+    opengl.driSupport32Bit = true;
+    hardware.trackpoint.fakeButtons = false;
   };
 
     # Enable the X11 windowing system.
   services.xserver.enable = true;
 
-  # Enable the KDE Plasma Desktop Environment.
-  #services.xserver.displayManager.sddm = {
+# Enable the KDE Plasma Desktop Environment.
+#  services.xserver.displayManager.sddm = {
 #	enable = true;
 #	wayland.enable = true;
 #	autoNumlock = true;
@@ -172,22 +167,34 @@ services.xserver.displayManager.gdm.enable = true;
 services.xserver.displayManager.gdm.wayland = true;
 
 
+  services.tlp = {
+      enable = true;
+      settings = {
+        PCIE_ASPM_ON_BAT = "powersupersave";
+        CPU_SCALING_GOVERNOR_ON_AC = "performance";
+        CPU_SCALING_GOVERNOR_ON_BAT = "powersave";
+        CPU_MAX_PERF_ON_AC = "100";
+        CPU_MAX_PERF_ON_BAT = "30";
+        STOP_CHARGE_THRESH_BAT1 = "95";
+        STOP_CHARGE_THRESH_BAT0 = "95";
+      };
+  };
+
+  services.logind.killUserProcesses = true;
+  services.throttled.enable = true;
+  services.fprintd.enable = true;
+  services.thinkfan.enable = true;
 
   services.xserver.displayManager.defaultSession = "hyprland";
   #services.xserver.desktopManager.plasma5.enable = true;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
-  users.users.total = {
+  users.users.christophermp = {
     isNormalUser = true;
     initialPassword = "nixos";
     description = "";
     extraGroups = [ "networkmanager" "wheel" "disk" "power" "video" "audio" "disk" "systemd-journal" ];
     packages = with pkgs; [];
-    openssh.authorizedKeys.keys = [
-  	"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDbzZLzWSWbwAsBLXBGFj+TJBMn5E1pIBImJTtVfVH4SmA8Ovufm48F0BO/orFXNwjmOo9I1AsmRaZVIz6ehuDiIkhYSRVdKMGI2jyc0SGXmkvKmdPOqZ5a6Diwd793Aal9C8lxOsdoCYIXcpSDEQhmcUl1b/sERtH/YZ+Xg7tZiXMdniqxa+PODYLau+5RqbuS48X5MiWMFFGjZd92gaLh7uRqO6ZyTa47HVPZY8ZhEllEY2eRu9uOnjpr7mQbsX3sCQEIrVcDEBE8IEl1gsjSi3qfSCs2HriQmxqVdDu6h9xPb2BWnvuusS7fX4lXQmCRyKhsEKWg+XcEkesYFqjDv9yqiB35CYRSMYIP+x3+ufk4LmNnp2Ae8dZNinJaEBlJJCY89uljqmB0uoHZVYW7TvjUQzHI/okQ4ecAaapX80DZtC6jCuJ2YsN1W1+DBBhDsX2OfXGaFtgrI8eB4QCheE7kIU0nx55jkfVndkosek3CLmcgvw7xBuTcrjtxUZc= lars.oksendal@gmail.com" # content of authorized_keys file
-  	# note: ssh-copy-id will add user@your-machine after the public key
-  	# but we can remove the "@your-machine" part
-    ];
   };
 
   # List packages installed in system profile. To search, run:
@@ -217,10 +224,6 @@ services.xserver.displayManager.gdm.wayland = true;
     cmatrix
     htop
     btop
-    # Work
-    sstp
-    networkmanager-sstp
-    citrix_workspace
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -263,6 +266,8 @@ services.xserver.displayManager.gdm.wayland = true;
   services.tumbler.enable = true;
   services.gvfs.enable = true;
   services.fstrim.enable = true;
+  services.upower.enable = true;
+  services.xserver.synaptics.tapButtons = true;
 
   services.openssh = {
    enable = true;
@@ -276,15 +281,6 @@ services.xserver.displayManager.gdm.wayland = true;
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
   services.blueman.enable = true;
-
-
-  #NFS
-  fileSystems."/mnt/nfs/Bigdisk1" = {
-    device = "192.168.0.40:/bigdisk1";
-    fsType = "nfs";
-    options = [ "rw" "nofail" "x-systemd.automount" "noauto" ];
-  };
-
 
   nix = {
     gc = {
